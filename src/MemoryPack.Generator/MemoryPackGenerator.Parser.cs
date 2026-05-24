@@ -58,6 +58,15 @@ public partial class TypeMeta
     public bool IsUnion { get; }
     public bool IsRecord { get; }
     public bool IsInterfaceOrAbstract { get; }
+
+    /// <summary>
+    /// Carbon fork: true when the type is decorated with [MemoryPack.PooledMemoryPackable].
+    /// The emitter swaps `new T()` for `global::Facepunch.Pool.Get&lt;T&gt;()` in the NEW branch
+    /// of the generated Deserialize, and routes field-write through SET regardless of IsUseEmptyConstructor.
+    /// Always false against vanilla MemoryPack (attribute lives only in the Carbon fork's Core).
+    /// </summary>
+    public bool IsPooled { get; }
+
     public IMethodSymbol? Constructor { get; }
     public MethodMeta[] OnSerializing { get; }
     public MethodMeta[] OnSerialized { get; }
@@ -113,6 +122,9 @@ public partial class TypeMeta
         this.IsInterfaceOrAbstract = symbol.IsAbstract;
         this.IsUnion = symbol.ContainsAttribute(reference.MemoryPackUnionAttribute);
         this.IsRecord = symbol.IsRecord;
+        // Carbon fork: detect [PooledMemoryPackable]. Nullable null-check guards against vanilla MemoryPack (no attribute defined).
+        this.IsPooled = reference.PooledMemoryPackableAttribute != null
+            && symbol.ContainsAttribute(reference.PooledMemoryPackableAttribute);
         this.OnSerializing = CollectMethod(reference.MemoryPackOnSerializingAttribute, IsValueType, isReader: false);
         this.OnSerialized = CollectMethod(reference.MemoryPackOnSerializedAttribute, IsValueType, isReader: false);
         this.OnDeserializing = CollectMethod(reference.MemoryPackOnDeserializingAttribute, IsValueType, isReader: true);
@@ -290,6 +302,36 @@ public partial class TypeMeta
         {
             context.ReportDiagnostic(Diagnostic.Create(ctorInvalid, syntax.Identifier.GetLocation(), Symbol.Name));
             noError = false;
+        }
+
+        // Carbon fork: [PooledMemoryPackable] validation.
+        // Pool.Get<T>() requires:
+        //   - reference type (not struct)
+        //   - concrete (not abstract/interface)
+        //   - parameterless constructible (no [MemoryPackConstructor] with params)
+        //   - not a polymorphic union (each variant has its own type identity, pooling a base doesn't make sense)
+        if (IsPooled)
+        {
+            if (IsValueType)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DiagnosticDescriptors.PooledMustBeReferenceType, syntax.Identifier.GetLocation(), Symbol.Name));
+                noError = false;
+            }
+            if (IsInterfaceOrAbstract)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DiagnosticDescriptors.PooledCannotBeAbstract, syntax.Identifier.GetLocation(), Symbol.Name));
+                noError = false;
+            }
+            if (IsUnion)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DiagnosticDescriptors.PooledCannotBeUnion, syntax.Identifier.GetLocation(), Symbol.Name));
+                noError = false;
+            }
+            if (!IsUseEmptyConstructor)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(DiagnosticDescriptors.PooledRequiresEmptyConstructor, syntax.Identifier.GetLocation(), Symbol.Name));
+                noError = false;
+            }
         }
 
         if (this.IsUnmanagedType)

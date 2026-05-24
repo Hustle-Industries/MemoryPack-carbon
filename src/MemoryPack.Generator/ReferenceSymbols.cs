@@ -26,6 +26,11 @@ public class ReferenceSymbols
     public INamedTypeSymbol GenerateTypeScriptAttribute { get; }
     public INamedTypeSymbol IMemoryPackable { get; }
 
+    // Carbon fork: optional [MemoryPack.PooledMemoryPackable] marker. Nullable because the attribute lives
+    // in the Carbon-flavoured MemoryPack.Core fork and is absent from vanilla upstream — the generator must
+    // remain usable against vanilla MemoryPack as a fallback.
+    public INamedTypeSymbol? PooledMemoryPackableAttribute { get; }
+
     public WellKnownTypes KnownTypes { get; }
 
     public ReferenceSymbols(Compilation compilation)
@@ -50,6 +55,10 @@ public class ReferenceSymbols
         SkipOverwriteDefaultAttribute = GetTypeByMetadataName("MemoryPack.SuppressDefaultInitializationAttribute");
         GenerateTypeScriptAttribute = GetTypeByMetadataName(MemoryPackGenerator.GenerateTypeScriptAttributeFullName);
         IMemoryPackable = GetTypeByMetadataName("MemoryPack.IMemoryPackable`1").ConstructUnboundGenericType();
+
+        // Carbon fork: nullable lookup (does not throw if missing — see field comment).
+        PooledMemoryPackableAttribute = compilation.GetTypeByMetadataName("MemoryPack.PooledMemoryPackableAttribute");
+
         KnownTypes = new WellKnownTypes(this);
     }
 

@@ -340,4 +340,40 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    // ===========================================================================================
+    // Carbon fork diagnostics — MEMPACK100+ range to avoid future collisions with upstream.
+    // ===========================================================================================
+
+    public static readonly DiagnosticDescriptor PooledMustBeReferenceType = new(
+        id: "MEMPACK100",
+        title: "[PooledMemoryPackable] requires a reference type",
+        messageFormat: "Type '{0}' is decorated with [PooledMemoryPackable] but is a value type. Only reference types (class) support pool-based deserialization via Facepunch.Pool.Get<T>().",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor PooledCannotBeAbstract = new(
+        id: "MEMPACK101",
+        title: "[PooledMemoryPackable] cannot be applied to abstract types",
+        messageFormat: "Type '{0}' is decorated with [PooledMemoryPackable] but is abstract/interface. Pool.Get<T>() cannot instantiate abstract types.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor PooledCannotBeUnion = new(
+        id: "MEMPACK102",
+        title: "[PooledMemoryPackable] cannot combine with [MemoryPackUnion]",
+        messageFormat: "Type '{0}' is decorated with both [PooledMemoryPackable] and [MemoryPackUnion]. Union types are polymorphic — pooling individual variants is unsupported.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor PooledRequiresEmptyConstructor = new(
+        id: "MEMPACK103",
+        title: "[PooledMemoryPackable] requires a parameterless constructor",
+        messageFormat: "Type '{0}' is decorated with [PooledMemoryPackable] but has a constructor with parameters. Pool.Get<T>() requires T to be constructible via parameterless ctor or Pool.IPooled.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

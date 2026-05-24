@@ -578,16 +578,14 @@ partial {{classOrStructOrRecord}} {{TypeName}}
         }
 
     SET:
-        {{(!IsUseEmptyConstructor ? "goto NEW;" : "")}}
-{{Members.Where(x => x.IsAssignable).Select(x => $"        {(IsUseEmptyConstructor ? "" : "// ")}value.@{x.Name} = __{x.Name};").NewLine()}}
+        {{((!IsUseEmptyConstructor && !IsPooled) ? "goto NEW;" : "")}}
+{{Members.Where(x => x.IsAssignable).Select(x => $"        {((IsUseEmptyConstructor || IsPooled) ? "" : "// ")}value.@{x.Name} = __{x.Name};").NewLine()}}
         goto READ_END;
 
     NEW:
-        value = {{EmitConstructor()}}
-        {
-{{EmitDeserializeConstruction("            ")}}
-        };
-{{EmitDeserializeConstructionWithBranching("        ")}}
+{{(IsPooled
+    ? $"        value = global::Facepunch.Pool.Get<{TypeName}>();\n        goto SET;"
+    : $"        value = {EmitConstructor()}\n        {{\n{EmitDeserializeConstruction("            ")}\n        }};\n{EmitDeserializeConstructionWithBranching("        ")}")}}
     READ_END:
 {{readEndBody}}
 """;
