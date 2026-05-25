@@ -403,7 +403,16 @@ export class {{TypeName}} {{impl}}{
 
         for (int i = 0; i < members.Length; i++)
         {
-            var (size, align) = GetUnmanagedTypeSizeAndAlign(members[i].MemberType);
+            int size, align;
+            try
+            {
+                (size, align) = GetUnmanagedTypeSizeAndAlign(members[i].MemberType);
+            }
+            catch (NotSupportedTypeException ex)
+            {
+                ex.MemberMeta = members[i];
+                throw;
+            }
             int padding = (align - (offset % align)) % align;
             offset += padding;
             fields[i] = new FieldLayout(members[i], offset, size);
@@ -417,7 +426,10 @@ export class {{TypeName}} {{impl}}{
 
     static (int Size, int Align) GetUnmanagedTypeSizeAndAlign(ITypeSymbol type)
     {
-        if (type is not INamedTypeSymbol nts) return (1, 1);
+        if (type is not INamedTypeSymbol nts)
+        {
+            throw new NotSupportedTypeException(type);
+        }
 
         if (nts.TypeKind == TypeKind.Enum)
             return GetUnmanagedTypeSizeAndAlign(nts.EnumUnderlyingType!);
@@ -443,12 +455,22 @@ export class {{TypeName}} {{impl}}{
                 return (8, 8);
         }
 
+        if (nts.ToDisplayString() == "System.Guid")
+        {
+            return (16, 4);
+        }
+
         if (nts.IsUnmanagedType && nts.TypeKind == TypeKind.Struct)
         {
             var instanceFields = nts.GetMembers()
                 .OfType<IFieldSymbol>()
                 .Where(f => !f.IsStatic)
                 .ToArray();
+
+            if (instanceFields.Length == 0)
+            {
+                throw new NotSupportedTypeException(nts);
+            }
 
             int off = 0;
             int maxA = 1;
@@ -463,7 +485,7 @@ export class {{TypeName}} {{impl}}{
             return (off + trailingPad, maxA);
         }
 
-        return (1, 1);
+        throw new NotSupportedTypeException(nts);
     }
 
     public void EmitTypeScriptUnion(StringBuilder sb, string importExt)
