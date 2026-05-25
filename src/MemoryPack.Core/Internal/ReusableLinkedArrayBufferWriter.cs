@@ -25,7 +25,7 @@ public static class ReusableLinkedArrayBufferWriterPool
         {
             return writer;
         }
-        return new ReusableLinkedArrayBufferWriter(useFirstBuffer: false, pinned: false); // does not cache firstBuffer
+        return new ReusableLinkedArrayBufferWriter(useFirstBuffer: true, pinned: false);
     }
 
     public static void Return(ReusableLinkedArrayBufferWriter writer)
@@ -94,11 +94,13 @@ public sealed class ReusableLinkedArrayBufferWriter : IBufferWriter<byte>
             }
         }
 
+        const int MaxPooledSegmentSize = 1024 * 1024; // ArrayPool<byte>.Shared max bucket — larger arrays bypass pool
+
         BufferSegment next;
         if (sizeHint <= nextBufferSize)
         {
             next = new BufferSegment(nextBufferSize);
-            nextBufferSize = MathEx.NewArrayCapacity(nextBufferSize);
+            nextBufferSize = Math.Min(MathEx.NewArrayCapacity(nextBufferSize), MaxPooledSegmentSize);
         }
         else
         {
