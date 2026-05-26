@@ -453,6 +453,8 @@ export class {{TypeName}} {{impl}}{
             case SpecialType.System_Double:
             case SpecialType.System_DateTime:
                 return (8, 8);
+            case SpecialType.System_Decimal:
+                return (16, 8);
         }
 
         if (nts.ToDisplayString() == "System.Guid")

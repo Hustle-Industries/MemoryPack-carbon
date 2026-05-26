@@ -132,6 +132,56 @@ export class MemoryPackWriter {
         this.offset += count;
     }
 
+    public writeDecimal(value: string): void {
+        const { flags, hi, lo } = MemoryPackWriter.parseDecimal(value);
+        this.writeInt32(flags);
+        this.writeUint32(hi);
+        this.writeUint64(lo);
+    }
+
+    public writeNullableDecimal(value: string | null): void {
+        if (value == null) {
+            this.clearBuffer(20);
+            return;
+        }
+        this.writeInt32(1);
+        this.writeDecimal(value);
+    }
+
+    private static parseDecimal(s: string): { flags: number, hi: number, lo: bigint } {
+        let str = s.trim();
+        let sign = 0;
+        if (str.startsWith("-")) { sign = 1; str = str.slice(1); }
+        else if (str.startsWith("+")) { str = str.slice(1); }
+
+        const dotIndex = str.indexOf(".");
+        let scale = 0;
+        let digits: string;
+        if (dotIndex >= 0) {
+            scale = str.length - dotIndex - 1;
+            digits = str.slice(0, dotIndex) + str.slice(dotIndex + 1);
+        } else {
+            digits = str;
+        }
+
+        if (digits.length === 0 || !/^\d+$/.test(digits)) {
+            throw new Error("Invalid decimal: " + s);
+        }
+        if (scale > 28) {
+            throw new Error("Decimal scale exceeds 28: " + s);
+        }
+
+        const mantissa = BigInt(digits);
+        if (mantissa >= (1n << 96n)) {
+            throw new Error("Decimal mantissa exceeds 96 bits: " + s);
+        }
+
+        const lo = mantissa & 0xFFFFFFFFFFFFFFFFn;
+        const hi = Number((mantissa >> 64n) & 0xFFFFFFFFn);
+        const flags = ((sign << 31) | (scale << 16)) | 0;
+        return { flags, hi, lo };
+    }
+
     public writeNullableUint8(value: number | null): void {
         if (value == null) {
             this.clearBuffer(2);
@@ -503,6 +553,37 @@ export class MemoryPackReader {
 
     public skipBytes(count: number): void {
         this.offset += count;
+    }
+
+    public readDecimal(): string {
+        const flags = this.readInt32();
+        const hi = this.readUint32();
+        const lo = this.readUint64();
+
+        const sign = (flags >>> 31) & 1;
+        const scale = (flags >>> 16) & 0xFF;
+
+        const mantissa = (BigInt(hi) << 64n) | lo;
+        let digits = mantissa.toString();
+
+        if (scale > 0) {
+            if (digits.length <= scale) {
+                digits = "0".repeat(scale - digits.length + 1) + digits;
+            }
+            const intPart = digits.slice(0, digits.length - scale);
+            const fracPart = digits.slice(digits.length - scale);
+            digits = intPart + "." + fracPart;
+        }
+
+        return (sign ? "-" : "") + digits;
+    }
+
+    public readNullableDecimal(): string | null {
+        if (this.readInt32() === 0) {
+            this.offset += 16;
+            return null;
+        }
+        return this.readDecimal();
     }
 
     public tryReadUnionHeader(): [boolean, number] {

@@ -389,6 +389,75 @@ public partial class Hoge
     }
 
     [Fact]
+    public void GenerateTypeScriptDecimalClassMember()
+    {
+        var generatedCode = CompileAndRead("""
+            using MemoryPack;
+
+            [MemoryPackable]
+            [GenerateTypeScript]
+            public partial class Wallet
+            {
+                public decimal Balance { get; set; }
+            }
+            """,
+            "Wallet.ts",
+            enableNullableTypes: false);
+
+        generatedCode.Should().Contain("balance: string;");
+        generatedCode.Should().Contain("this.balance = \"0\";");
+        generatedCode.Should().Contain("writer.writeDecimal(value.balance)");
+        generatedCode.Should().Contain("value.balance = reader.readDecimal()");
+    }
+
+    [Fact]
+    public void GenerateTypeScriptNullableDecimalClassMember()
+    {
+        var generatedCode = CompileAndRead("""
+            using MemoryPack;
+
+            [MemoryPackable]
+            [GenerateTypeScript]
+            public partial class Wallet
+            {
+                public decimal? Balance { get; set; }
+            }
+            """,
+            "Wallet.ts",
+            enableNullableTypes: false);
+
+        generatedCode.Should().Contain("balance: string | null;");
+        generatedCode.Should().Contain("this.balance = null;");
+        generatedCode.Should().Contain("writer.writeNullableDecimal(value.balance)");
+        generatedCode.Should().Contain("value.balance = reader.readNullableDecimal()");
+    }
+
+    [Fact]
+    public void GenerateTypeScriptDecimalUnmanagedStruct()
+    {
+        var generatedCode = CompileAndRead("""
+            using MemoryPack;
+
+            [MemoryPackable]
+            [GenerateTypeScript]
+            public partial struct Money
+            {
+                public decimal Amount { get; set; }
+                public int Currency { get; set; }
+            }
+            """,
+            "Money.ts",
+            enableNullableTypes: false);
+
+        generatedCode.Should().Contain("static serializeCore(writer: MemoryPackWriter, value: Money): void");
+        generatedCode.Should().Contain("writer.writeDecimal(value.amount)");
+        generatedCode.Should().Contain("writer.writeInt32(value.currency)");
+        generatedCode.Should().Contain("value.amount = reader.readDecimal()");
+        generatedCode.Should().Contain("value.currency = reader.readInt32()");
+        generatedCode.Should().NotContain("writeObjectHeader");
+    }
+
+    [Fact]
     public void MEMPACK043_GenerateTypeScriptDoesNotAllowNullableStruct()
     {
         Compile2(43, """

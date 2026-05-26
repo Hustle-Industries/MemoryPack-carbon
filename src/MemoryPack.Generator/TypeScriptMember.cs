@@ -351,6 +351,13 @@ public class TypeScriptMember
 
                 break;
 
+            case SpecialType.System_Decimal:
+                typeName = "string";
+                binaryOperationMethod = "Decimal";
+                defaultValue = "\"0\"";
+
+                break;
+
             default:
                 return null;
         }
@@ -465,6 +472,13 @@ public class TypeScriptMember
                 typeName = GetTypeName("Date");
                 binaryOperationMethod = "Date";
                 defaultValue = GetDefaultValue("new Date(0)");
+
+                break;
+
+            case SpecialType.System_Decimal:
+                typeName = GetTypeName("string");
+                binaryOperationMethod = "Decimal";
+                defaultValue = GetDefaultValue("\"0\"");
 
                 break;
 
