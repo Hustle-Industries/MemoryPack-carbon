@@ -62,13 +62,11 @@ namespace MemoryPack.Formatters
                 return true;
             }
 
-#if NET7_0_OR_GREATER
             if (value is List<TElement?> list)
             {
-                writer.WriteSpan(CollectionsMarshal.AsSpan(list));
+                writer.WriteSpan<TElement>(CollectionsMarshalEx.AsSpan(list));
                 return true;
             }
-#endif
 
             return false;
         }
