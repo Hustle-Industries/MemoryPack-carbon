@@ -1,5 +1,3 @@
-﻿#if NET7_0_OR_GREATER
-
 #pragma warning disable CS8618
 #pragma warning disable CS0649
 
@@ -9,12 +7,18 @@ namespace MemoryPack.Internal;
 
 internal static class CollectionsMarshalEx
 {
-    /// <summary>
-    /// similar as AsSpan but modify size to create fixed-size span.
-    /// </summary>
+    public static Span<T?> AsSpan<T>(List<T?> list)
+    {
+        ref var view = ref Unsafe.As<List<T?>, ListView<T?>>(ref list);
+        return view._items.AsSpan(0, view._size);
+    }
+
     public static Span<T?> CreateSpan<T>(List<T?> list, int length)
     {
-        list.EnsureCapacity(length);
+        if (list.Capacity < length)
+        {
+            list.Capacity = length;
+        }
 
         ref var view = ref Unsafe.As<List<T?>, ListView<T?>>(ref list);
         view._size = length;
@@ -29,14 +33,14 @@ internal static class CollectionsMarshalEx
 
     public static Span<T?> CreateSpan<T>(Stack<T?> stack, int length)
     {
-        stack.EnsureCapacity(length);
-
         ref var view = ref Unsafe.As<Stack<T?>, StackView<T?>>(ref stack);
+        if (view._items.Length < length)
+        {
+            Array.Resize(ref view._items, length);
+        }
         view._size = length;
-        return view._items.AsSpan(0, view._size);
+        return view._items.AsSpan(0, length);
     }
-
-    // NOTE: These structure depndent on .NET 7, if changed, require to keep same structure.
 
     internal sealed class ListView<T>
     {
@@ -52,5 +56,3 @@ internal static class CollectionsMarshalEx
         public int _version;
     }
 }
-
-#endif
