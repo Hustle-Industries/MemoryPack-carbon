@@ -27,13 +27,8 @@ public static partial class MemoryPackSerializer
             Unsafe.WriteUnaligned(ref GetArrayDataReference(array), value);
             return array;
         }
-#if NET7_0_OR_GREATER
         var typeKind = TypeHelpers.TryGetUnmanagedSZArrayElementSizeOrMemoryPackableFixedSize<T>(out var elementSize);
-        if (typeKind == TypeHelpers.TypeKind.None)
-        {
-            // do nothing
-        }
-        else if (typeKind == TypeHelpers.TypeKind.UnmanagedSZArray)
+        if (typeKind == TypeHelpers.TypeKind.UnmanagedSZArray)
         {
             if (value == null)
             {
@@ -49,13 +44,18 @@ public static partial class MemoryPackSerializer
 
             var dataSize = elementSize * length;
             var destArray = AllocateUninitializedArray<byte>(dataSize + 4);
-            ref var head = ref MemoryMarshal.GetArrayDataReference(destArray);
+            ref var head = ref GetArrayDataReference(destArray);
 
             Unsafe.WriteUnaligned(ref head, length);
+#if NET7_0_OR_GREATER
             Unsafe.CopyBlockUnaligned(ref Unsafe.Add(ref head, 4), ref MemoryMarshal.GetArrayDataReference(srcArray), (uint)dataSize);
+#else
+            Buffer.BlockCopy(srcArray, 0, destArray, 4, dataSize);
+#endif
 
             return destArray;
         }
+#if NET7_0_OR_GREATER
         else if (typeKind == TypeHelpers.TypeKind.FixedSizeMemoryPackable)
         {
             var buffer = new byte[(value == null) ? 1 : elementSize];
